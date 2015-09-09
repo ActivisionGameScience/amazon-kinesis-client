@@ -14,17 +14,6 @@
         <url>https://github.com/ActivisionGameScience/amazon-kinesis-client</url>
     </scm>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>artifactory.snapshots</id>
-            <url>http://usav1gam02:8855/artifactory/snapshot-repo</url>
-        </snapshotRepository>
-        <repository>
-            <id>artifactory.releases</id>
-            <url>http://usav1gam02:8855/artifactory/release-repo</url>
-        </repository>
-    </distributionManagement>
-
     <licenses>
         <license>
             <name>Amazon Software License</name>
