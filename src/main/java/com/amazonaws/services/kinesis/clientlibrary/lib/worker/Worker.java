@@ -14,18 +14,6 @@
  */
 package com.amazonaws.services.kinesis.clientlibrary.lib.worker;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
@@ -37,6 +25,7 @@ import com.amazonaws.services.kinesis.AmazonKinesisClient;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.ICheckpoint;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory;
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.ShutdownCapableRecordProcessorFactory;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.KinesisProxyFactory;
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason;
 import com.amazonaws.services.kinesis.leases.exceptions.LeasingException;
@@ -45,6 +34,13 @@ import com.amazonaws.services.kinesis.metrics.impl.CWMetricsFactory;
 import com.amazonaws.services.kinesis.metrics.impl.NullMetricsFactory;
 import com.amazonaws.services.kinesis.metrics.interfaces.IMetricsFactory;
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.*;
 
 /**
  * Worker is the high level class that Kinesis applications use to start
@@ -357,6 +353,25 @@ public class Worker implements Runnable {
                 }
             }
             wlog.resetInfoLogging();
+        }
+
+        if (recordProcessorFactory instanceof ShutdownCapableRecordProcessorFactory) {
+            ShutdownCapableRecordProcessorFactory factory = (ShutdownCapableRecordProcessorFactory) recordProcessorFactory;
+            factory.shutdownProcessors();
+        }
+
+        LOG.info("Shutting down ShardSyncTaskManager.ExecutorService");
+        executorService.shutdown();
+        try {
+            long stopWaitTimeInMillis = 10000;
+            if (executorService.awaitTermination(stopWaitTimeInMillis, TimeUnit.MILLISECONDS)) {
+                LOG.info("ShardSyncTaskManager.ExecutorService shutdown successfully");
+            } else {
+                executorService.shutdownNow();
+                LOG.info(String.format("ShardSyncTaskManager.ExecutorService shutdown after  %dms milliseconds", stopWaitTimeInMillis));
+            }
+        } catch (InterruptedException e) {
+            LOG.debug("Encountered InterruptedException when awaiting ShardSyncTaskManager.ExecutorService termination");
         }
 
         LOG.info("Stopping LeaseCoordinator.");
